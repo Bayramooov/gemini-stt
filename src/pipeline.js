@@ -68,7 +68,13 @@ export async function runPipeline(ctx, info) {
       });
     }
 
-    await progress.finish(`✅ Done in ${fmtDuration((Date.now() - jobStart) / 1000)}`);
+    const elapsed = (Date.now() - jobStart) / 1000;
+    const u = ctx.from;
+    const name = u.username ? `@${u.username}` : [u.first_name, u.last_name].filter(Boolean).join(' ');
+    console.log(
+      `✓ ${name} (${u.id}) · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)} · ${result.model.replace('gemini-2.5-', '')} · $${cost.toFixed(4)} · ${result.text.length} chars · ${fmtDuration(elapsed)} total`,
+    );
+    await progress.finish(`✅ Done in ${fmtDuration(elapsed)}`);
   } catch (err) {
     console.error('pipeline error:', err);
     progress.stopTicker();

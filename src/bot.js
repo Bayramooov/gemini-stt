@@ -5,6 +5,7 @@ import { runPipeline } from './pipeline.js';
 
 const bot = new Telegraf(config.botToken, {
   telegram: { apiRoot: config.tgBotApiUrl },
+  handlerTimeout: 60 * 60 * 1000, // 60 min — long enough for the longest meetings, short enough to recover from a true deadlock
 });
 
 // DM-only: silently drop anything from groups/channels.

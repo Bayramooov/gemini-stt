@@ -1,0 +1,34 @@
+services:
+  telegram-bot-api:
+    image: aiogram/telegram-bot-api:9.6
+    restart: unless-stopped
+    environment:
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
+      TELEGRAM_LOCAL: 1
+    ports:
+      - "127.0.0.1:8081:8081"
+    volumes:
+      - ./tg-data:/var/lib/telegram-bot-api:z
+    healthcheck:
+      # bot-api has no 200-OK root endpoint, so HTTP probes (wget --spider)
+      # fail even when the server is fully running. TCP port check works.
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8081"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  bot:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    # Match bot-api's UID so we can read its tg-data files (mode 0640).
+    user: "101:101"
+    depends_on:
+      telegram-bot-api:
+        condition: service_healthy
+    environment:
+      TG_BOT_API_URL: http://telegram-bot-api:8081
+    volumes:
+      - ./tg-data:/var/lib/telegram-bot-api:ro,z

@@ -1,0 +1,48 @@
+// Sends one Telegram message and edits it over time. Edit failures (rate
+// limits, deleted message, etc.) are silently swallowed — they aren't
+// actionable and would otherwise crash the ticker.
+export class Progress {
+  constructor(ctx) {
+    this.ctx = ctx;
+    this.text = '';
+    this.messageId = null;
+    this.timer = null;
+    this.tickerStartedAt = 0;
+  }
+
+  async start(text) {
+    this.text = text;
+    const sent = await this.ctx.reply(text);
+    this.messageId = sent.message_id;
+  }
+
+  async update(text) {
+    if (!this.messageId || text === this.text) return;
+    try {
+      await this.ctx.telegram.editMessageText(this.ctx.chat.id, this.messageId, undefined, text);
+      this.text = text;
+    } catch {
+      // see class-level comment
+    }
+  }
+
+  // Begin auto-editing the message. The fn receives elapsed milliseconds since
+  // the ticker started and returns the text to display.
+  startTicker(fn) {
+    this.stopTicker();
+    this.tickerStartedAt = Date.now();
+    const tick = () => this.update(fn(Date.now() - this.tickerStartedAt));
+    tick(); // run once immediately
+    this.timer = setInterval(tick, 5000);
+  }
+
+  stopTicker() {
+    if (this.timer) clearInterval(this.timer);
+    this.timer = null;
+  }
+
+  async finish(text) {
+    this.stopTicker();
+    await this.update(text);
+  }
+}

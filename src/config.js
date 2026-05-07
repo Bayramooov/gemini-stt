@@ -43,7 +43,7 @@ export const config = {
   silenceThresholdDb: num('SILENCE_THRESHOLD_DB', -50),
   silenceMinDuration: num('SILENCE_MIN_DURATION', 0.5),
   silencePaddingSec: num('SILENCE_PADDING_SEC', 0.5),
-  speedup: num('SPEEDUP_FACTOR', 1.35),
+  speedup: num('SPEEDUP_FACTOR', 1.3),
 };
 
 export function isLocalApi(url = config.tgBotApiUrl) {

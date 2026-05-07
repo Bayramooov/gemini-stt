@@ -22,7 +22,7 @@ export async function probe(path) {
 
 export async function optimize(input, output, opts = {}) {
   const {
-    speedup = 1.35, //
+    speedup = 1.3, //
     silenceTrim = true,
     silenceThresholdDb = -50,
     silenceMinDuration = 0.5,

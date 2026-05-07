@@ -42,9 +42,20 @@ export async function runPipeline(ctx, info) {
       caption: `🔧 Optimized\n${optSummary}\n\nThis is exactly what is being sent to Gemini.`,
     });
 
-    progress.startTicker(elapsedMs => `🎙 Transcribing with ${config.geminiModel}…\n` + `Elapsed: ${fmtDuration(elapsedMs / 1000)}`);
+    let lastRetry = null;
+    progress.startTicker(elapsedMs => {
+      const lines = [`🎙 Transcribing with ${config.geminiModel}…`];
+      if (lastRetry) lines.push(`Gemini busy, retry ${lastRetry.attempt}/${lastRetry.maxRetries}`);
+      lines.push(`Elapsed: ${fmtDuration(elapsedMs / 1000)}`);
+      return lines.join('\n');
+    });
 
-    const result = await transcribe(gemini, optimizedPath, { model: config.geminiModel });
+    const result = await transcribe(gemini, optimizedPath, {
+      model: config.geminiModel,
+      onRetry: info => {
+        lastRetry = info;
+      },
+    });
     progress.stopTicker();
 
     if (!result.text?.trim()) throw new Error('Gemini returned an empty transcript.');

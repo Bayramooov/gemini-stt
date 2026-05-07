@@ -7,8 +7,9 @@ const POLL_INTERVAL_MS = 1500;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
 
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
-const MAX_RETRIES = 4;
-const BASE_BACKOFF_MS = 2000;
+const MAX_RETRIES = 8;
+const BASE_BACKOFF_MS = 1500;
+const MAX_BACKOFF_MS = 30_000;
 
 // Prompt lives in src/prompt.md — edit there, restart the bot to pick up changes.
 const PROMPT_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'prompt.md');
@@ -31,7 +32,10 @@ export async function transcribe(client, audioPath, opts = {}) {
     prompt = TRANSCRIPTION_PROMPT,
   } = opts;
 
-  const logRetry = op => info => console.log(`gemini ${op} retry ${info.attempt}/${MAX_RETRIES} after ${info.status} in ${(info.delayMs / 1000).toFixed(1)}s`);
+  const handleRetry = op => info => {
+    console.log(`gemini ${op} retry ${info.attempt}/${info.maxRetries} after ${info.status} in ${(info.delayMs / 1000).toFixed(1)}s`);
+    opts.onRetry?.(info);
+  };
 
   const uploaded = await withRetry(
     () =>
@@ -39,8 +43,9 @@ export async function transcribe(client, audioPath, opts = {}) {
         file: audioPath,
         config: { mimeType, displayName: basename(audioPath) },
       }),
-    logRetry('upload'),
+    handleRetry('upload'),
   );
+  opts.onRetry?.(null);
 
   const ready = await waitUntilActive(client, uploaded.name);
 
@@ -57,8 +62,9 @@ export async function transcribe(client, audioPath, opts = {}) {
         ],
         config: { systemInstruction: prompt },
       }),
-    logRetry('generateContent'),
+    handleRetry('generateContent'),
   );
+  opts.onRetry?.(null);
   const generationMs = Date.now() - t0;
 
   client.files.delete({ name: ready.name }).catch(() => {});
@@ -110,8 +116,8 @@ async function withRetry(fn, onRetry) {
       const status = err?.status ?? err?.response?.status;
       if (!RETRYABLE_STATUSES.has(status) || attempt >= MAX_RETRIES) throw err;
       attempt++;
-      const delayMs = BASE_BACKOFF_MS * 2 ** (attempt - 1) + Math.random() * BASE_BACKOFF_MS * 0.5;
-      onRetry?.({ attempt, status, delayMs, error: err });
+      const delayMs = Math.min(BASE_BACKOFF_MS * 2 ** (attempt - 1), MAX_BACKOFF_MS) + Math.random() * BASE_BACKOFF_MS * 0.5;
+      onRetry?.({ attempt, status, delayMs, error: err, maxRetries: MAX_RETRIES });
       await sleep(delayMs);
     }
   }

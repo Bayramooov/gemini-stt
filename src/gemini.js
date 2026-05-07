@@ -32,18 +32,13 @@ export async function transcribe(client, audioPath, opts = {}) {
     prompt = TRANSCRIPTION_PROMPT,
   } = opts;
 
-  const handleRetry = op => info => {
-    console.log(`gemini ${op} retry ${info.attempt}/${info.maxRetries} after ${info.status} in ${(info.delayMs / 1000).toFixed(1)}s`);
-    opts.onRetry?.(info);
-  };
-
   const uploaded = await withRetry(
     () =>
       client.files.upload({
         file: audioPath,
         config: { mimeType, displayName: basename(audioPath) },
       }),
-    handleRetry('upload'),
+    opts.onRetry,
   );
   opts.onRetry?.(null);
 
@@ -62,7 +57,7 @@ export async function transcribe(client, audioPath, opts = {}) {
         ],
         config: { systemInstruction: prompt },
       }),
-    handleRetry('generateContent'),
+    opts.onRetry,
   );
   opts.onRetry?.(null);
   const generationMs = Date.now() - t0;

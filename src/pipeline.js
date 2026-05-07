@@ -11,11 +11,33 @@ import { formatOutput, fmtDuration, fmtBytes } from './markdown.js';
 
 const gemini = createClient(config.geminiApiKey);
 
+// Gemini's ApiError stringifies as "ApiError: {json}". Pull the human-readable
+// message out so it fits on one log line.
+function extractReason(err) {
+  const status = err?.status ?? err?.response?.status;
+  let msg = err?.message ?? String(err);
+  try {
+    const parsed = JSON.parse(msg.slice(msg.indexOf(':') + 1).trim());
+    if (parsed?.error?.message) msg = parsed.error.message;
+  } catch {}
+  msg = msg.split('\n')[0].slice(0, 200);
+  return status ? `${status} ${msg}` : msg;
+}
+
+function formatRetries(n) {
+  return n ? ` · ${n} ${n === 1 ? 'retry' : 'retries'}` : '';
+}
+
+const ts = () => `[${new Date().toISOString().slice(0, 19).replace('T', ' ')}]`;
+
 // info: { fileId, mimeType, fileName? }
 export async function runPipeline(ctx, info) {
   const tempDir = await mkdtemp(join(tmpdir(), 'gemini-stt-'));
   const progress = new Progress(ctx);
   const jobStart = Date.now();
+  let opt = null;
+  let retryCount = 0;
+  let lastRetry = null;
 
   try {
     await progress.start('📥 Downloading from Telegram…');
@@ -24,7 +46,7 @@ export async function runPipeline(ctx, info) {
 
     await progress.update('🔧 Optimizing audio…');
     const optimizedPath = resolve(tempDir, 'optimized.ogg');
-    const opt = await optimize(downloadPath, optimizedPath, {
+    opt = await optimize(downloadPath, optimizedPath, {
       speedup: config.speedup,
       silenceTrim: config.silenceTrim,
       silenceThresholdDb: config.silenceThresholdDb,
@@ -42,7 +64,6 @@ export async function runPipeline(ctx, info) {
       caption: `🔧 Optimized\n${optSummary}\n\nThis is exactly what is being sent to Gemini.`,
     });
 
-    let lastRetry = null;
     progress.startTicker(elapsedMs => {
       const lines = [`🎙 Transcribing with ${config.geminiModel}…`];
       if (lastRetry) lines.push(`Gemini busy, retry ${lastRetry.attempt}/${lastRetry.maxRetries}`);
@@ -52,8 +73,13 @@ export async function runPipeline(ctx, info) {
 
     const result = await transcribe(gemini, optimizedPath, {
       model: config.geminiModel,
-      onRetry: info => {
-        lastRetry = info;
+      onRetry: r => {
+        if (r) {
+          retryCount++;
+          lastRetry = r;
+        } else {
+          lastRetry = null;
+        }
       },
     });
     progress.stopTicker();
@@ -83,12 +109,18 @@ export async function runPipeline(ctx, info) {
     const u = ctx.from;
     const name = u.username ? `@${u.username}` : [u.first_name, u.last_name].filter(Boolean).join(' ');
     console.log(
-      `✓ ${name} (${u.id}) · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)} · ${result.model.replace('gemini-2.5-', '')} · $${cost.toFixed(4)} · ${result.text.length} chars · ${fmtDuration(elapsed)} total`,
+      `${ts()} ✓ ${name} (${u.id}) · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)} · ${result.model.replace('gemini-2.5-', '')} · $${cost.toFixed(4)} · ${result.text.length} chars · ${fmtDuration(elapsed)} total${formatRetries(retryCount)}`,
     );
     await progress.finish(`✅ Done in ${fmtDuration(elapsed)}`);
   } catch (err) {
-    console.error('pipeline error:', err);
     progress.stopTicker();
+    const elapsed = (Date.now() - jobStart) / 1000;
+    const u = ctx.from;
+    const name = u.username ? `@${u.username}` : [u.first_name, u.last_name].filter(Boolean).join(' ');
+    const optPart = opt ? ` · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)}` : '';
+    console.log(
+      `${ts()} ✗ ${name} (${u.id})${optPart} · ${config.geminiModel.replace('gemini-2.5-', '')} · ${fmtDuration(elapsed)} total${formatRetries(retryCount)} · failed: ${extractReason(err)}`,
+    );
     await progress.finish(`❌ ${err.message ?? String(err)}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });

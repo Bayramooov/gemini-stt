@@ -28,21 +28,23 @@ function formatRetries(n) {
   return n ? ` · ${n} ${n === 1 ? 'retry' : 'retries'}` : '';
 }
 
-const ts = () => `[${new Date().toISOString().slice(0, 19).replace('T', ' ')}]`;
+const ts = () => new Date().toLocaleString('sv');
 
-// info: { fileId, mimeType, fileName? }
-export async function runPipeline(ctx, info) {
+export async function runPipeline(ctx, fileId) {
   const tempDir = await mkdtemp(join(tmpdir(), 'gemini-stt-'));
   const progress = new Progress(ctx);
   const jobStart = Date.now();
+  const u = ctx.from;
+  const name = u.username ? `@${u.username}` : [u.first_name, u.last_name].filter(Boolean).join(' ');
   let opt = null;
+  let optimizedBlock = '';
   let retryCount = 0;
   let lastRetry = null;
 
   try {
     await progress.start('📥 Downloading from Telegram…');
     const downloadPath = resolve(tempDir, 'input');
-    await downloadTelegramFile(ctx.telegram, info.fileId, downloadPath);
+    await downloadTelegramFile(ctx.telegram, fileId, downloadPath);
 
     await progress.update('🔧 Optimizing audio…');
     const optimizedPath = resolve(tempDir, 'optimized.ogg');
@@ -54,21 +56,17 @@ export async function runPipeline(ctx, info) {
       silencePaddingSec: config.silencePaddingSec,
     });
 
-    const optSummary =
-      `${fmtDuration(opt.originalDuration)} → ${fmtDuration(opt.optimizedDuration)}` +
-      ` (-${(opt.durationSavings * 100).toFixed(0)}%)\n` +
+    optimizedBlock =
+      `🔧 Optimized\n` +
+      `${fmtDuration(opt.originalDuration)} → ${fmtDuration(opt.optimizedDuration)} (-${(opt.durationSavings * 100).toFixed(0)}%)\n` +
       `${fmtBytes(opt.originalSize)} → ${fmtBytes(opt.optimizedSize)}`;
 
-    await progress.update(`📤 Sending optimized file…\n${optSummary}`);
-    await ctx.replyWithAudio(Input.fromLocalFile(optimizedPath), {
-      caption: `🔧 Optimized\n${optSummary}\n\nThis is exactly what is being sent to Gemini.`,
-    });
+    await progress.update(`${optimizedBlock}\n\n📤 Sending optimized file…`);
+    await ctx.replyWithAudio(Input.fromLocalFile(optimizedPath));
 
     progress.startTicker(elapsedMs => {
-      const lines = [`🎙 Transcribing with ${config.geminiModel}…`];
-      if (lastRetry) lines.push(`Gemini busy, retry ${lastRetry.attempt}/${lastRetry.maxRetries}`);
-      lines.push(`Elapsed: ${fmtDuration(elapsedMs / 1000)}`);
-      return lines.join('\n');
+      const retry = lastRetry ? ` (Gemini busy, retry ${lastRetry.attempt}/${lastRetry.maxRetries})` : '';
+      return `${optimizedBlock}\n\n🎙 Transcribing with ${config.geminiModel}…\nElapsed: ${fmtDuration(elapsedMs / 1000)}${retry}`;
     });
 
     const result = await transcribe(gemini, optimizedPath, {
@@ -87,41 +85,29 @@ export async function runPipeline(ctx, info) {
     if (!result.text?.trim()) throw new Error('Gemini returned an empty transcript.');
 
     const cost = estimateCost(result) ?? 0;
-    const output = formatOutput(result.text, {
-      originalDuration: opt.originalDuration,
-      optimizedDuration: opt.optimizedDuration,
-      durationSavings: opt.durationSavings,
-      model: result.model,
-      audioTokens: result.audioTokens,
-      outputTokens: result.outputTokens,
-      cost,
-    });
+    const output = formatOutput(result.text);
 
     if (output.kind === 'message') {
       await ctx.reply(output.text, output.parseMode ? { parse_mode: output.parseMode } : {});
     } else {
-      await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(output.content), output.filename), {
-        caption: `🎙 ${result.model}  ·  ${fmtDuration(opt.optimizedDuration)}  ·  $${cost.toFixed(4)}`,
-      });
+      await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(output.content), output.filename));
     }
 
     const elapsed = (Date.now() - jobStart) / 1000;
-    const u = ctx.from;
-    const name = u.username ? `@${u.username}` : [u.first_name, u.last_name].filter(Boolean).join(' ');
     console.log(
-      `${ts()} ✓ ${name} (${u.id}) · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)} · ${result.model.replace('gemini-2.5-', '')} · $${cost.toFixed(4)} · ${result.text.length} chars · ${fmtDuration(elapsed)} total${formatRetries(retryCount)}`,
+      `[${ts()}] ✓ ${name} (${u.id}) · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)} · ${result.model.replace('gemini-2.5-', '')} · $${cost.toFixed(4)} · ${result.text.length} chars · ${fmtDuration(elapsed)} total${formatRetries(retryCount)}`,
     );
-    await progress.finish(`✅ Done in ${fmtDuration(elapsed)}`);
+    const retriesParen = retryCount ? ` (${retryCount} ${retryCount === 1 ? 'retry' : 'retries'})` : '';
+    await progress.finish(`${optimizedBlock}\n\n🎙 ${result.model} · $${cost.toFixed(4)}\n✅ Done in ${fmtDuration(elapsed)}${retriesParen}`);
   } catch (err) {
     progress.stopTicker();
     const elapsed = (Date.now() - jobStart) / 1000;
-    const u = ctx.from;
-    const name = u.username ? `@${u.username}` : [u.first_name, u.last_name].filter(Boolean).join(' ');
     const optPart = opt ? ` · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)}` : '';
     console.log(
-      `${ts()} ✗ ${name} (${u.id})${optPart} · ${config.geminiModel.replace('gemini-2.5-', '')} · ${fmtDuration(elapsed)} total${formatRetries(retryCount)} · failed: ${extractReason(err)}`,
+      `[${ts()}] ✗ ${name} (${u.id})${optPart} · ${config.geminiModel.replace('gemini-2.5-', '')} · ${fmtDuration(elapsed)} total${formatRetries(retryCount)} · failed: ${extractReason(err)}`,
     );
-    await progress.finish(`❌ ${err.message ?? String(err)}`);
+    const prefix = optimizedBlock ? `${optimizedBlock}\n\n` : '';
+    await progress.finish(`${prefix}❌ ${err.message ?? String(err)}`);
   } finally {
     await rm(tempDir, { recursive: true, force: true });
   }

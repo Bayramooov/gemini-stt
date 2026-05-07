@@ -27,8 +27,6 @@ export async function optimize(input, output, opts = {}) {
     silenceThresholdDb = -50,
     silenceMinDuration = 0.5,
     silencePaddingSec = 0.5,
-    bitrate = '24k',
-    sampleRate = 16000,
   } = opts;
 
   const before = await probe(input);
@@ -54,8 +52,8 @@ export async function optimize(input, output, opts = {}) {
   await new Promise((resolve, reject) => {
     const cmd = ffmpeg(input)
       .audioCodec('libopus')
-      .audioBitrate(bitrate)
-      .audioFrequency(sampleRate)
+      .audioBitrate('24k')
+      .audioFrequency(16000)
       .audioChannels(1)
       .format('ogg')
       .on('stderr', line => {

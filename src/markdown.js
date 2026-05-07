@@ -1,21 +1,12 @@
-// Decides how to deliver a transcript to Telegram based on its length.
-// Telegram's hard cap is 4096 chars per message; we leave headroom for footer.
-const SHORT_THRESHOLD = 500;
+// Telegram caps messages at 4096 chars; longer transcripts ship as a file.
 const MESSAGE_THRESHOLD = 3800;
 
-export function formatOutput(transcript, meta) {
+export function formatOutput(transcript) {
   const text = transcript.trim();
-
-  if (text.length < SHORT_THRESHOLD) {
+  if (text.length < MESSAGE_THRESHOLD) {
     return { kind: 'message', text: mdToTelegramHtml(text), parseMode: 'HTML' };
   }
-
-  if (text.length < MESSAGE_THRESHOLD) {
-    const footer = `\n\n<i>${fmtDuration(meta.optimizedDuration)} · ${meta.model} · $${meta.cost.toFixed(4)}</i>`;
-    return { kind: 'message', text: mdToTelegramHtml(text) + footer, parseMode: 'HTML' };
-  }
-
-  return { kind: 'file', filename: 'transcript.md', content: buildMarkdown(text, meta) };
+  return { kind: 'file', filename: 'transcript.md', content: `${text}\n` };
 }
 
 // Converts the standard markdown Gemini might emit into Telegram HTML, after
@@ -35,25 +26,6 @@ function mdToTelegramHtml(s) {
     .replace(/\*([^*\n]+?)\*/g, '<i>$1</i>')
     .replace(/~~(.+?)~~/g, '<s>$1</s>')
     .replace(/`([^`\n]+?)`/g, '<code>$1</code>');
-}
-
-function buildMarkdown(transcript, meta) {
-  const lines = [
-    '---',
-    `original_duration: ${fmtDuration(meta.originalDuration)}`,
-    `optimized_duration: ${fmtDuration(meta.optimizedDuration)}`,
-    `duration_savings: ${(meta.durationSavings * 100).toFixed(1)}%`,
-    `model: ${meta.model}`,
-    `transcribed_at: ${new Date().toISOString()}`,
-    `audio_tokens: ${meta.audioTokens}`,
-    `output_tokens: ${meta.outputTokens}`,
-    `estimated_cost_usd: ${meta.cost.toFixed(4)}`,
-    '---',
-    '',
-    transcript,
-    '',
-  ];
-  return lines.join('\n');
 }
 
 export function fmtDuration(seconds) {

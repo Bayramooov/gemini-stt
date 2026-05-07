@@ -26,17 +26,13 @@ export function createClient(apiKey) {
 }
 
 export async function transcribe(client, audioPath, opts = {}) {
-  const {
-    model = 'gemini-2.5-pro', //
-    mimeType = 'audio/ogg',
-    prompt = TRANSCRIPTION_PROMPT,
-  } = opts;
+  const { model = 'gemini-2.5-pro' } = opts;
 
   const uploaded = await withRetry(
     () =>
       client.files.upload({
         file: audioPath,
-        config: { mimeType, displayName: basename(audioPath) },
+        config: { mimeType: 'audio/ogg', displayName: basename(audioPath) },
       }),
     opts.onRetry,
   );
@@ -52,10 +48,10 @@ export async function transcribe(client, audioPath, opts = {}) {
         contents: [
           {
             role: 'user',
-            parts: [{ fileData: { fileUri: ready.uri, mimeType } }],
+            parts: [{ fileData: { fileUri: ready.uri, mimeType: 'audio/ogg' } }],
           },
         ],
-        config: { systemInstruction: prompt },
+        config: { systemInstruction: TRANSCRIPTION_PROMPT },
       }),
     opts.onRetry,
   );

@@ -9,10 +9,7 @@ const bot = new Telegraf(config.botToken, {
 });
 
 // DM-only: silently drop anything from groups/channels.
-bot.use(async (ctx, next) => {
-  if (ctx.chat?.type !== 'private') return;
-  return next();
-});
+bot.use((ctx, next) => (ctx.chat?.type === 'private' ? next() : undefined));
 
 const WELCOME = 'Send me a voice note or audio file. I will transcribe and reply.';
 
@@ -37,27 +34,17 @@ bot.command('whoami', ctx => {
 });
 
 // Allowlist: silently ignore non-allowlisted users.
-bot.use(async (ctx, next) => {
-  if (config.allowedUserIds.has(ctx.from?.id)) return next();
-});
+bot.use((ctx, next) => (config.allowedUserIds.has(ctx.from?.id) ? next() : undefined));
 
 // Audio handlers.
-bot.on(message('voice'), ctx => {
-  const v = ctx.message.voice;
-  return runPipeline(ctx, { fileId: v.file_id, mimeType: v.mime_type ?? 'audio/ogg' });
-});
-
-bot.on(message('audio'), ctx => {
-  const a = ctx.message.audio;
-  return runPipeline(ctx, { fileId: a.file_id, mimeType: a.mime_type ?? 'audio/mpeg', fileName: a.file_name });
-});
-
+bot.on(message('voice'), ctx => runPipeline(ctx, ctx.message.voice.file_id));
+bot.on(message('audio'), ctx => runPipeline(ctx, ctx.message.audio.file_id));
 bot.on(message('document'), ctx => {
   const d = ctx.message.document;
   if (!d.mime_type?.startsWith('audio/')) {
     return ctx.reply(`Document is not audio (mime: ${d.mime_type ?? '?'}). Ignored.`);
   }
-  return runPipeline(ctx, { fileId: d.file_id, mimeType: d.mime_type, fileName: d.file_name });
+  return runPipeline(ctx, d.file_id);
 });
 
 // Graceful shutdown

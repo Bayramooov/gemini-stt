@@ -9,7 +9,7 @@ services:
     ports:
       - "127.0.0.1:8081:8081"
     volumes:
-      - ./tg-data:/var/lib/telegram-bot-api:z
+      - ./data/tg-data:/var/lib/telegram-bot-api:z
     healthcheck:
       # bot-api has no 200-OK root endpoint, so HTTP probes (wget --spider)
       # fail even when the server is fully running. TCP port check works.
@@ -31,4 +31,5 @@ services:
     environment:
       TG_BOT_API_URL: http://telegram-bot-api:8081
     volumes:
-      - ./tg-data:/var/lib/telegram-bot-api:ro,z
+      - ./data/tg-data:/var/lib/telegram-bot-api:ro,z
+      - ./data:/app/data:z

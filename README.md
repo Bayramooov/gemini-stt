@@ -14,7 +14,7 @@ Personal Telegram bot. Send a voice note or audio file → get back a transcript
 
 ```bash
 cp .env.example .env
-# fill in BOT_TOKEN, ALLOWED_USER_IDS, GEMINI_API_KEY
+# fill in BOT_TOKEN, ADMIN_USER_ID, GEMINI_API_KEY
 ```
 
 For docker mode, also fill `TELEGRAM_API_ID` and `TELEGRAM_API_HASH` from <https://my.telegram.org/apps>.
@@ -62,7 +62,7 @@ Defaults work; tune in `.env` only if needed.
 **Required**
 
 - `BOT_TOKEN` — from [@BotFather](https://t.me/BotFather).
-- `ALLOWED_USER_IDS` — comma-separated Telegram user IDs allowed to use the bot. DM `/whoami` to find yours.
+- `ADMIN_USER_ID` — your Telegram user ID. DM `/whoami` to find it. Admin is always allowed and can manage the allowlist via `/allow <id>`, `/deny <id>`, `/list`. Other users are persisted in `data/access.json`.
 - `GEMINI_API_KEY` — from <https://aistudio.google.com/apikey>.
 
 **Required for docker (self-hosted bot-api)**
@@ -95,20 +95,25 @@ docker compose down
 Only needed for local mode. Docker bundles its own.
 
 **macOS**:
+
 ```bash
 brew install ffmpeg
 ```
 
 **Linux** (Debian / Ubuntu):
+
 ```bash
 sudo apt update && sudo apt install -y ffmpeg
 ```
+
 Arch: `sudo pacman -S ffmpeg`. Fedora/RHEL: `sudo dnf install ffmpeg`.
 
 **Windows** (winget, built into Windows 10/11):
+
 ```powershell
 winget install Gyan.FFmpeg
 ```
+
 Alternatives: `choco install ffmpeg` or `scoop install ffmpeg`.
 
 Verify with `ffmpeg -version`.

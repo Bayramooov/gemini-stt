@@ -4,18 +4,11 @@ function required(name) {
   return v;
 }
 
-function parseIdList(raw) {
-  return new Set(
-    (raw || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean)
-      .map(s => {
-        const n = Number(s);
-        if (!Number.isInteger(n)) throw new Error(`Invalid user ID: ${s}`);
-        return n;
-      }),
-  );
+function parseId(name) {
+  const v = required(name);
+  const n = Number(v);
+  if (!Number.isInteger(n)) throw new Error(`Invalid ${name}: ${v}`);
+  return n;
 }
 
 function num(name, fallback) {
@@ -31,7 +24,7 @@ function num(name, fallback) {
 export const config = {
   // Telegram
   botToken: required('BOT_TOKEN'),
-  allowedUserIds: parseIdList(process.env.ALLOWED_USER_IDS),
+  adminUserId: parseId('ADMIN_USER_ID'),
   tgBotApiUrl: process.env.TG_BOT_API_URL || 'https://api.telegram.org',
 
   // Gemini

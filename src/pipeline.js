@@ -12,6 +12,20 @@ import { acquireSlot, releaseSlot } from './queue.js';
 import { formatOutput, fmtDuration, fmtBytes } from './markdown.js';
 
 const gemini = createClient(config.geminiApiKey);
+const PHRASES = [
+  'Listening',
+  'Decoding',
+  'Diarizing',
+  'Transcribing',
+  'Untangling',
+  'Disambiguating',
+  'Distilling',
+  'Crystallizing',
+  'Discerning',
+  'Synthesizing',
+  'Annotating',
+  'Polishing',
+];
 
 // Gemini's ApiError stringifies as "ApiError: {json}". Pull the human-readable
 // message out so it fits on one log line.
@@ -71,9 +85,10 @@ export async function runPipeline(ctx, fileId) {
       await progress.update(`${optimizedBlock}\n\n📤 Sending optimized file…`);
       await ctx.replyWithAudio(Input.fromLocalFile(optimizedPath));
 
-      progress.startTicker(elapsedMs => {
-        const retry = lastRetry ? ` (Gemini busy, retry ${lastRetry.attempt}/${lastRetry.maxRetries})` : '';
-        return `${optimizedBlock}\n\n🎙 Transcribing with ${config.geminiModel}…\nElapsed: ${fmtDuration(elapsedMs / 1000)}${retry}`;
+      progress.startTicker(() => {
+        const phrase = PHRASES[Math.floor(Math.random() * PHRASES.length)];
+        const retry = lastRetry ? ` (retry ${lastRetry.attempt}/${lastRetry.maxRetries})` : '';
+        return `${optimizedBlock}\n\n🎙 ${phrase}…${retry}`;
       });
 
       const result = await transcribe(gemini, optimizedPath, {
@@ -89,7 +104,7 @@ export async function runPipeline(ctx, fileId) {
       });
       progress.stopTicker();
 
-      if (!result.text?.trim()) throw new Error('Gemini returned an empty transcript.');
+      if (!result.text?.trim()) throw new Error('Got an empty transcript.');
 
       const cost = estimateCost(result) ?? 0;
       const output = formatOutput(result.text, tag);
@@ -104,8 +119,7 @@ export async function runPipeline(ctx, fileId) {
       console.log(
         `[${ts()}] ✓ ${name} (${u.id}) · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)} · ${result.model.replace('gemini-2.5-', '')} · $${cost.toFixed(4)} · ${result.text.length} chars · ${fmtDuration(elapsed)} total${formatRetries(retryCount)}`,
       );
-      const retriesParen = retryCount ? ` (${retryCount} ${retryCount === 1 ? 'retry' : 'retries'})` : '';
-      await progress.finish(`${optimizedBlock}\n\n🎙 ${result.model} · $${cost.toFixed(4)}\n✅ Done in ${fmtDuration(elapsed)}${retriesParen}`);
+      await progress.finish(optimizedBlock);
     } catch (err) {
       progress.stopTicker();
       const elapsed = (Date.now() - jobStart) / 1000;

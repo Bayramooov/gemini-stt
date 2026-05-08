@@ -7,7 +7,6 @@ export class Progress {
     this.text = '';
     this.messageId = null;
     this.timer = null;
-    this.tickerStartedAt = 0;
   }
 
   async start(text) {
@@ -26,14 +25,12 @@ export class Progress {
     }
   }
 
-  // Begin auto-editing the message. The fn receives elapsed milliseconds since
-  // the ticker started and returns the text to display.
+  // Begin auto-editing the message. The fn returns the text to display.
   startTicker(fn) {
     this.stopTicker();
-    this.tickerStartedAt = Date.now();
-    const tick = () => this.update(fn(Date.now() - this.tickerStartedAt));
+    const tick = () => this.update(fn());
     tick(); // run once immediately
-    this.timer = setInterval(tick, 5000);
+    this.timer = setInterval(tick, 2000);
   }
 
   stopTicker() {

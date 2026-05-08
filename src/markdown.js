@@ -4,28 +4,9 @@ const MESSAGE_THRESHOLD = 3800;
 export function formatOutput(transcript, tag) {
   const text = transcript.trim();
   if (text.length < MESSAGE_THRESHOLD) {
-    return { kind: 'message', text: mdToTelegramHtml(text), parseMode: 'HTML' };
+    return { kind: 'message', text };
   }
-  return { kind: 'file', filename: `transcript-${tag}.md`, content: `${text}\n` };
-}
-
-// Converts the standard markdown Gemini might emit into Telegram HTML, after
-// escaping HTML-special chars in the rest of the text. Supported:
-//   **bold**       → <b>bold</b>
-//   _italic_       → <i>italic</i>   (skipped inside words like snake_case)
-//   *italic*       → <i>italic</i>
-//   ~~strike~~     → <s>strike</s>
-//   `code`         → <code>code</code>
-function mdToTelegramHtml(s) {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/(?<!\w)_([^_\n]+?)_(?!\w)/g, '<i>$1</i>')
-    .replace(/\*([^*\n]+?)\*/g, '<i>$1</i>')
-    .replace(/~~(.+?)~~/g, '<s>$1</s>')
-    .replace(/`([^`\n]+?)`/g, '<code>$1</code>');
+  return { kind: 'file', filename: `transcript-${tag}.txt`, content: `${text}\n` };
 }
 
 export function fmtDuration(seconds) {

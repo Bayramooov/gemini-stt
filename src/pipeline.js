@@ -95,7 +95,7 @@ export async function runPipeline(ctx, fileId) {
       const output = formatOutput(result.text, tag);
 
       if (output.kind === 'message') {
-        await ctx.reply(output.text, output.parseMode ? { parse_mode: output.parseMode } : {});
+        await ctx.reply(output.text);
       } else {
         await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(output.content), output.filename));
       }

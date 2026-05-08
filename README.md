@@ -1,10 +1,10 @@
 # gemini-stt
 
-Personal Telegram bot. Send a voice note or audio file → get back a transcript via Gemini.
+Personal Telegram bot. Send a voice note, audio file, or video → get back a transcript via Gemini.
 
 - **Audio optimization** — silence trim + speedup + Opus re-encode. ~30–40% cheaper Gemini calls.
 - **Returns the optimized audio** before transcribing, so you can hear what Gemini hears.
-- **Smart output** — short transcripts as a Telegram message, long ones as a `.md` document with metadata frontmatter.
+- **Smart output** — short transcripts as a Telegram message, long ones as a `.txt` document.
 - **Speaker diarization** with timestamps (configured in [`src/prompt.md`](src/prompt.md)).
 - **Two run modes**: docker (self-hosted Bot API, 2 GB files) or local (cloud Bot API, 20 MB files).
 
@@ -47,11 +47,11 @@ Don't run both modes at once — Telegram allows only one polling client per tok
 
 ## How it works
 
-1. Voice/audio arrives → bot downloads it (HTTPS in cloud mode; direct disk read from shared `tg-data` volume in self-hosted mode).
-2. ffmpeg optimizes: trim silences, speed up, encode to 16 kHz mono Opus.
+1. Voice/audio/video arrives → bot downloads it (HTTPS in cloud mode; direct disk read from shared `tg-data` volume in self-hosted mode).
+2. ffmpeg extracts audio (video stream dropped) and optimizes: trim silences, speed up, encode to 16 kHz mono Opus.
 3. Bot sends the optimized file back so you can hear what's going to Gemini.
 4. File uploaded to Gemini File API; `generateContent` called with the system instruction from [`src/prompt.md`](src/prompt.md).
-5. Transcript replied as inline message (< 3800 chars) or `transcript.md` document with YAML frontmatter.
+5. Transcript replied as inline message (< 3800 chars) or `transcript.txt` document.
 
 Edit [`src/prompt.md`](src/prompt.md) to change transcription behavior (speaker labels, language, formatting). Restart the bot.
 

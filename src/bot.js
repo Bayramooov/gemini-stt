@@ -17,7 +17,7 @@ const bot = new Telegraf(config.botToken, {
 // DM-only: silently drop anything from groups/channels.
 bot.use((ctx, next) => (ctx.chat?.type === 'private' ? next() : undefined));
 
-const WELCOME = 'Send me a voice note or audio file. I will transcribe and reply.';
+const WELCOME = 'Send me a voice note, audio file, or video. I will transcribe and reply.';
 
 const formatWhoami = (u, allowed) => `ID: ${u.id}\n` + `Username: @${u.username ?? '(none)'}\n` + `Status: ${allowed ? 'authorized ✓' : 'not authorized — contact the admin'}`;
 
@@ -65,13 +65,16 @@ bot.command('list', ctx => {
 // Allowlist: silently ignore non-allowlisted users.
 bot.use((ctx, next) => (isAllowed(ctx.from?.id) ? next() : undefined));
 
-// Audio handlers.
+// Media handlers — audio + video; video runs through the same pipeline since ffmpeg extracts the audio track.
 bot.on(message('voice'), ctx => runPipeline(ctx, ctx.message.voice.file_id));
 bot.on(message('audio'), ctx => runPipeline(ctx, ctx.message.audio.file_id));
+bot.on(message('video'), ctx => runPipeline(ctx, ctx.message.video.file_id));
+bot.on(message('video_note'), ctx => runPipeline(ctx, ctx.message.video_note.file_id));
 bot.on(message('document'), ctx => {
   const d = ctx.message.document;
-  if (!d.mime_type?.startsWith('audio/')) {
-    return ctx.reply(`Document is not audio (mime: ${d.mime_type ?? '?'}). Ignored.`);
+  const mime = d.mime_type ?? '';
+  if (!mime.startsWith('audio/') && !mime.startsWith('video/')) {
+    return ctx.reply(`Document is not audio or video (mime: ${mime || '?'}). Ignored.`);
   }
   return runPipeline(ctx, d.file_id);
 });

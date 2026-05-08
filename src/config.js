@@ -37,6 +37,9 @@ export const config = {
   silenceMinDuration: num('SILENCE_MIN_DURATION', 0.5),
   silencePaddingSec: num('SILENCE_PADDING_SEC', 0.5),
   speedup: num('SPEEDUP_FACTOR', 1.3),
+
+  // Concurrency
+  maxConcurrent: Math.max(1, Math.floor(num('MAX_CONCURRENT', 4))),
 };
 
 export function isLocalApi(url = config.tgBotApiUrl) {

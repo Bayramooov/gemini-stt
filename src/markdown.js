@@ -1,12 +1,12 @@
 // Telegram caps messages at 4096 chars; longer transcripts ship as a file.
 const MESSAGE_THRESHOLD = 3800;
 
-export function formatOutput(transcript) {
+export function formatOutput(transcript, tag) {
   const text = transcript.trim();
   if (text.length < MESSAGE_THRESHOLD) {
     return { kind: 'message', text: mdToTelegramHtml(text), parseMode: 'HTML' };
   }
-  return { kind: 'file', filename: 'transcript.md', content: `${text}\n` };
+  return { kind: 'file', filename: `transcript-${tag}.md`, content: `${text}\n` };
 }
 
 // Converts the standard markdown Gemini might emit into Telegram HTML, after

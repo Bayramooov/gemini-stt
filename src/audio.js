@@ -50,7 +50,7 @@ export async function optimize(input, output, opts = {}) {
 
   let ffmpegStderr = '';
   await new Promise((resolve, reject) => {
-    const cmd = ffmpeg(input)
+    const cmd = ffmpeg(input, { timeout: 300 })
       .audioCodec('libopus')
       .audioBitrate('24k')
       .audioFrequency(16000)

@@ -84,8 +84,6 @@ process.once('SIGTERM', () => bot.stop('SIGTERM'));
 console.log(`▶ starting bot`);
 console.log(`  api:           ${config.tgBotApiUrl}  (${isLocalApi() ? 'local' : 'cloud'})`);
 console.log(`  model:         ${config.geminiModel}`);
-console.log(`  speedup:       ${config.speedup}×`);
-console.log(`  silence trim:  ${config.silenceTrim}`);
 console.log(`  admin:         ${config.adminUserId}`);
 console.log(`  allowed users: ${allowlist.list().join(', ') || '(none — only admin works)'}`);
 

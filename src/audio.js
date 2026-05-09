@@ -4,7 +4,7 @@ import { promisify } from 'node:util';
 
 const ffprobe = promisify(ffmpeg.ffprobe);
 
-export async function probe(path) {
+async function probe(path) {
   let meta;
   try {
     meta = await ffprobe(path);
@@ -20,59 +20,34 @@ export async function probe(path) {
   return { duration, size };
 }
 
-export async function optimize(input, output, opts = {}) {
-  const {
-    speedup = 1.3, //
-    silenceTrim = true,
-    silenceThresholdDb = -50,
-    silenceMinDuration = 0.5,
-    silencePaddingSec = 0.5,
-  } = opts;
+// Trim silences (>0.5s, <-50dB, with 0.5s padding) and speed up 1.3×.
+const FILTERS =
+  'silenceremove=start_periods=1:start_duration=0.5:start_silence=0.5:start_threshold=-50dB:stop_periods=-1:stop_duration=0.5:stop_silence=0.5:stop_threshold=-50dB,atempo=1.3';
 
+export async function optimize(input, output) {
   const before = await probe(input);
-
-  const filters = [];
-  if (silenceTrim) {
-    filters.push(
-      `silenceremove=start_periods=1` +
-        `:start_duration=${silenceMinDuration}` +
-        `:start_silence=${silencePaddingSec}` +
-        `:start_threshold=${silenceThresholdDb}dB` +
-        `:stop_periods=-1` +
-        `:stop_duration=${silenceMinDuration}` +
-        `:stop_silence=${silencePaddingSec}` +
-        `:stop_threshold=${silenceThresholdDb}dB`,
-    );
-  }
-  if (speedup !== 1) {
-    filters.push(`atempo=${speedup}`);
-  }
 
   let ffmpegStderr = '';
   await new Promise((resolve, reject) => {
-    const cmd = ffmpeg(input, { timeout: 300 })
+    ffmpeg(input, { timeout: 300 })
       .noVideo()
       .audioCodec('libopus')
       .audioBitrate('24k')
       .audioFrequency(16000)
       .audioChannels(1)
       .format('ogg')
+      .audioFilters(FILTERS)
       .on('stderr', line => {
         ffmpegStderr += line + '\n';
       })
       .on('error', err => reject(new Error(`ffmpeg failed: ${err.message}\nstderr tail:\n${ffmpegStderr.slice(-800)}`)))
-      .on('end', resolve);
-    if (filters.length) cmd.audioFilters(filters.join(','));
-    cmd.save(output);
+      .on('end', resolve)
+      .save(output);
   });
 
   const outStat = await stat(output).catch(() => null);
   if (!outStat || outStat.size < 1000) {
-    throw new Error(
-      `Optimization produced empty/tiny output (${outStat?.size ?? 'no file'} bytes). ` +
-        `The silenceremove filter consumed (almost) the entire input. ` +
-        `Try SILENCE_TRIM=false or a more negative SILENCE_THRESHOLD_DB.`,
-    );
+    throw new Error(`Optimization produced empty/tiny output (${outStat?.size ?? 'no file'} bytes); silenceremove consumed (almost) the entire input.`);
   }
 
   const after = await probe(output);

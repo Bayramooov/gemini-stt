@@ -69,7 +69,7 @@ export async function runPipeline(ctx, fileId) {
 
       await progress.update('🔧 Optimizing audio…');
       const optimizedPath = resolve(tempDir, `optimized-${tag}.ogg`);
-      opt = await optimize(downloadPath, optimizedPath, config);
+      opt = await optimize(downloadPath, optimizedPath);
 
       optimizedBlock =
         `🔧 Optimized\n` +

@@ -73,13 +73,7 @@ Defaults work; tune in `.env` only if needed.
 
 - `GEMINI_MODEL` — `gemini-2.5-pro` (default) or `gemini-2.5-flash` (~3× cheaper).
 
-**Audio optimization** (each one shaves Gemini cost):
-
-- `SPEEDUP_FACTOR` — plays audio faster than real-time. `1.0` disables.
-- `SILENCE_TRIM` — removes silent pauses. `false` disables.
-- `SILENCE_THRESHOLD_DB` — what counts as silence. More negative = less aggressive (only true silence trimmed).
-- `SILENCE_MIN_DURATION` — minimum gap (seconds) before trimming kicks in.
-- `SILENCE_PADDING_SEC` — silence kept around each trimmed gap so word edges don't get clipped.
+Audio optimization parameters (silence trim, 1.3× speedup) are hardcoded in [`src/audio.js`](src/audio.js).
 
 ## Reverting docker → local
 

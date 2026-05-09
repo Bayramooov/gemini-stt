@@ -105,7 +105,7 @@ async function withRetry(fn, onRetry) {
       if (!RETRYABLE_STATUSES.has(status) || attempt >= MAX_RETRIES) throw err;
       attempt++;
       const delayMs = Math.min(BASE_BACKOFF_MS * 2 ** (attempt - 1), MAX_BACKOFF_MS) + Math.random() * BASE_BACKOFF_MS * 0.5;
-      onRetry?.({ attempt, status, delayMs, error: err, maxRetries: MAX_RETRIES });
+      onRetry?.({ attempt, maxRetries: MAX_RETRIES });
       await sleep(delayMs);
     }
   }

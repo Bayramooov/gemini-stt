@@ -2,32 +2,22 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const PATH = './data/access.json';
 
-const ids = new Set();
+mkdirSync('./data', { recursive: true });
+if (!existsSync(PATH)) writeFileSync(PATH, '[]');
+const ids = new Set(JSON.parse(readFileSync(PATH, 'utf8')));
 
-export function load() {
-  mkdirSync('./data', { recursive: true });
-  if (!existsSync(PATH)) writeFileSync(PATH, '[]');
-  for (const id of JSON.parse(readFileSync(PATH, 'utf8'))) ids.add(id);
-}
+const save = () => writeFileSync(PATH, JSON.stringify([...ids]));
 
-function save() {
-  writeFileSync(PATH, JSON.stringify([...ids]));
-}
-
-export function add(id) {
+export const add = id => {
   ids.add(id);
   save();
-}
+};
 
-export function remove(id) {
+export const remove = id => {
   ids.delete(id);
   save();
-}
+};
 
-export function has(id) {
-  return ids.has(id);
-}
+export const has = id => ids.has(id);
 
-export function list() {
-  return [...ids];
-}
+export const list = () => [...ids];

@@ -40,7 +40,6 @@ export async function transcribe(client, audioPath, opts = {}) {
 
   const ready = await waitUntilActive(client, uploaded.name);
 
-  const t0 = Date.now();
   const response = await withRetry(
     () =>
       client.models.generateContent({
@@ -56,7 +55,6 @@ export async function transcribe(client, audioPath, opts = {}) {
     opts.onRetry,
   );
   opts.onRetry?.(null);
-  const generationMs = Date.now() - t0;
 
   client.files.delete({ name: ready.name }).catch(() => {});
 
@@ -69,7 +67,6 @@ export async function transcribe(client, audioPath, opts = {}) {
     promptTokens: usage.promptTokenCount ?? 0,
     audioTokens: audioModality?.tokenCount ?? 0,
     outputTokens: usage.candidatesTokenCount ?? 0,
-    generationMs,
   };
 }
 

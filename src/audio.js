@@ -83,7 +83,5 @@ export async function optimize(input, output, opts = {}) {
     originalSize: before.size,
     optimizedSize: after.size,
     durationSavings: 1 - after.duration / before.duration,
-    sizeSavings: 1 - after.size / before.size,
-    filters,
   };
 }

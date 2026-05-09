@@ -4,8 +4,6 @@ import { config, isLocalApi } from './config.js';
 import * as allowlist from './allowlist.js';
 import { runPipeline } from './pipeline.js';
 
-allowlist.load();
-
 const isAdmin = id => id === config.adminUserId;
 const isAllowed = id => isAdmin(id) || allowlist.has(id);
 

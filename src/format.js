@@ -1,9 +1,9 @@
 // Telegram caps messages at 4096 chars; longer transcripts ship as a file.
-const MESSAGE_THRESHOLD = 3800;
+const MSG_THRESHOLD = 3800;
 
-export function formatOutput(transcript, tag) {
+export function fmtOutput(transcript, tag) {
   const text = transcript.trim();
-  if (text.length < MESSAGE_THRESHOLD) {
+  if (text.length < MSG_THRESHOLD) {
     return { kind: 'message', text };
   }
   return { kind: 'file', filename: `transcript-${tag}.txt`, content: `${text}\n` };
@@ -20,10 +20,10 @@ export function fmtDuration(seconds) {
   return `${sec}s`;
 }
 
-export function fmtBytes(b) {
-  if (b == null) return '?';
-  if (b >= 1e9) return `${(b / 1e9).toFixed(2)} GB`;
-  if (b >= 1e6) return `${(b / 1e6).toFixed(2)} MB`;
-  if (b >= 1e3) return `${(b / 1e3).toFixed(1)} KB`;
-  return `${b} B`;
+export function fmtBytes(bytes) {
+  if (bytes == null) return '?';
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} GB`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(2)} MB`;
+  if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(1)} KB`;
+  return `${bytes} B`;
 }

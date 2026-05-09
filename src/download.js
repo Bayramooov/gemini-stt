@@ -7,7 +7,7 @@ import { isLocalApi } from './config.js';
 // Downloads a Telegram file to destPath, regardless of whether we're using the
 // hosted Bot API (HTTPS download) or a self-hosted server (already on disk at
 // the same path the bot can read directly).
-export async function downloadTelegramFile(telegram, fileId, destPath) {
+export async function downloadFile(telegram, fileId, destPath) {
   await mkdir(dirname(destPath), { recursive: true });
 
   if (isLocalApi()) {

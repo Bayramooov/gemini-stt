@@ -25,6 +25,4 @@ export const config = {
   maxConcurrent: Math.max(1, int('MAX_CONCURRENT', 4)),
 };
 
-export function isLocalApi(url = config.tgBotApiUrl) {
-  return !url.includes('api.telegram.org');
-}
+export const isLocalApi = (url = config.tgBotApiUrl) => !url.includes('api.telegram.org');

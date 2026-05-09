@@ -17,7 +17,7 @@ bot.use((ctx, next) => (ctx.chat?.type === 'private' ? next() : undefined));
 
 const WELCOME = 'Send me a voice note, audio file, or video. I will transcribe and reply.';
 
-const formatWhoami = (u, allowed) => `ID: ${u.id}\n` + `Username: @${u.username ?? '(none)'}\n` + `Status: ${allowed ? 'authorized ✓' : 'not authorized — contact the admin'}`;
+const fmtWhoami = (u, allowed) => `ID: ${u.id}\nUsername: @${u.username ?? '(none)'}\nStatus: ${allowed ? 'authorized ✓' : 'not authorized — contact the admin'}`;
 
 // /start and /whoami work for everyone in DMs (regardless of allowlist).
 bot.start(ctx => {
@@ -25,7 +25,7 @@ bot.start(ctx => {
   const allowed = isAllowed(u.id);
   if (allowed) return ctx.reply(WELCOME);
   console.log(`/start unauthorized — id=${u.id}, username=@${u.username ?? 'none'}`);
-  return ctx.reply(`${WELCOME}\n\n${formatWhoami(u, false)}`);
+  return ctx.reply(`${WELCOME}\n\n${fmtWhoami(u, false)}`);
 });
 
 bot.command('whoami', ctx => {
@@ -34,7 +34,7 @@ bot.command('whoami', ctx => {
   if (!allowed) {
     console.log(`/whoami unauthorized — id=${u.id}, username=@${u.username ?? 'none'}`);
   }
-  return ctx.reply(formatWhoami(u, allowed));
+  return ctx.reply(fmtWhoami(u, allowed));
 });
 
 // Admin commands.

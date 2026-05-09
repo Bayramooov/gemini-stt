@@ -21,6 +21,15 @@ Fewer lines is the _last_ goal, not the first. If a refactor makes the file shor
 - **Comments only when WHY is non-obvious.** Don't restate WHAT the code does.
 - **No backwards-compat shims** when a clean change is possible.
 
+## Naming conventions
+
+- **Prefer well-known abbreviations** when they exist: `fmt` (not `format`), `msg` (not `message`), `tg` (not `telegram`), `cfg` (not `config`), `req`/`res` for HTTP, `idx`/`i` for index. Don't invent obscure abbreviations — only use ones a JS developer will recognize at a glance.
+- **Stay consistent within a family.** If `fmtDuration`/`fmtBytes` exist, the third sibling is `fmtOutput`, not `formatOutput`. Picking the convention isn't the point — _not breaking it_ is.
+- **Function declaration style:** multi-line bodies use `function foo() { … }`; single-line returns use `const foo = … => …`. Examples: `sleep`, `ts`, `isAdmin` are arrow; `optimize`, `withRetry`, `extractReason` are `function`.
+- **File names:** lowercase, single-word, domain-noun. `audio.js`, `gemini.js`, `download.js` — never generic plurals like `files.js` or `utils.js`.
+- **Constants:** UPPER_SNAKE_CASE with the same abbreviation rules (`MSG_THRESHOLD`, not `MESSAGE_THRESHOLD`).
+- **Parameter names:** prefer explicit (`bytes`, `seconds`) over single letters, except in tiny callbacks (`r`, `i`, `pos`) where the surrounding context makes the meaning obvious.
+
 ## Operational notes
 
 - Prompt at [src/prompt.md](src/prompt.md) is read once at startup. Restart the bot after editing.

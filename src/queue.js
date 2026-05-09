@@ -5,18 +5,18 @@ import { config } from './config.js';
 let inFlight = 0;
 const waiters = [];
 
-const queueText = pos => {
+function queueText(pos) {
   const ahead = pos - 1;
   if (ahead === 0) return `⏳ Queued — you're next…`;
   return `⏳ Queued — ${ahead} ${ahead === 1 ? 'job' : 'jobs'} ahead of you…`;
-};
+}
 
-// Returns true if the caller had to wait. The caller's `progress` is reused:
-// we send the initial "Queued" message and edit it as the position changes.
+// Sends a "Queued" message via `progress` if the caller has to wait, and edits
+// it as the position changes. Resolves once a slot is free.
 export async function acquireSlot(progress) {
   if (inFlight < config.maxConcurrent && waiters.length === 0) {
     inFlight++;
-    return false;
+    return;
   }
   let initialPos;
   const slot = new Promise(resolve => {
@@ -25,13 +25,12 @@ export async function acquireSlot(progress) {
         inFlight++;
         resolve();
       },
-      onUpdate: pos => progress.update(queueText(pos)),
+      onUpdate: pos => progress.show(queueText(pos)),
     });
     initialPos = waiters.length;
   });
-  await progress.start(queueText(initialPos));
+  await progress.show(queueText(initialPos));
   await slot;
-  return true;
 }
 
 export function releaseSlot() {

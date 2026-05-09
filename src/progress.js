@@ -9,27 +9,24 @@ export class Progress {
     this.timer = null;
   }
 
-  async start(text) {
-    this.text = text;
-    const sent = await this.ctx.reply(text);
-    this.messageId = sent.message_id;
-  }
-
-  async update(text) {
-    if (!this.messageId || text === this.text) return;
+  async show(text) {
+    if (text === this.text) return;
+    if (!this.messageId) {
+      const sent = await this.ctx.reply(text);
+      this.messageId = sent.message_id;
+      this.text = text;
+      return;
+    }
     try {
       await this.ctx.telegram.editMessageText(this.ctx.chat.id, this.messageId, undefined, text);
       this.text = text;
-    } catch {
-      // see class-level comment
-    }
+    } catch {}
   }
 
-  // Begin auto-editing the message. The fn returns the text to display.
   startTicker(fn) {
     this.stopTicker();
-    const tick = () => this.update(fn());
-    tick(); // run once immediately
+    const tick = () => this.show(fn());
+    tick();
     this.timer = setInterval(tick, 2000);
   }
 
@@ -40,6 +37,6 @@ export class Progress {
 
   async finish(text) {
     this.stopTicker();
-    await this.update(text);
+    await this.show(text);
   }
 }

@@ -7,119 +7,69 @@ import { config } from './config.js';
 import { downloadFile } from './download.js';
 import { optimize } from './audio.js';
 import { createClient, transcribe, estimateCost } from './gemini.js';
-import { Progress } from './progress.js';
 import { acquireSlot, releaseSlot } from './queue.js';
-import { fmtOutput, fmtDuration, fmtBytes } from './format.js';
+import { fmtOutput } from './format.js';
+import { logSuccess, logFailure } from './logger.js';
+import * as status from './status.js';
 
 const gemini = createClient(config.geminiApiKey);
-const PHRASES = [
-  'Listening',
-  'Decoding',
-  'Diarizing',
-  'Transcribing',
-  'Untangling',
-  'Disambiguating',
-  'Distilling',
-  'Crystallizing',
-  'Discerning',
-  'Synthesizing',
-  'Annotating',
-  'Polishing',
-];
 
-// Gemini's ApiError stringifies as "ApiError: {json}". Pull the human-readable
-// message out so it fits on one log line.
-function extractReason(err) {
-  const status = err?.status ?? err?.response?.status;
-  let msg = err?.message ?? String(err);
-  try {
-    const parsed = JSON.parse(msg.slice(msg.indexOf(':') + 1).trim());
-    if (parsed?.error?.message) msg = parsed.error.message;
-  } catch {}
-  msg = msg.split('\n')[0].slice(0, 200);
-  return status ? `${status} ${msg}` : msg;
-}
+export async function run(ctx, fileId) {
+  const ui = status.createStatus(ctx);
+  await acquireSlot(ui);
 
-const fmtRetries = n => (n ? ` · ${n} ${n === 1 ? 'retry' : 'retries'}` : '');
-
-const ts = () => new Date().toLocaleString('sv');
-
-export async function runPipeline(ctx, fileId) {
-  const progress = new Progress(ctx);
-  await acquireSlot(progress);
+  const tempDir = await mkdtemp(join(tmpdir(), 'gemini-stt-'));
+  const jobStart = Date.now();
+  const u = ctx.from;
+  const tag = randomBytes(3).toString('hex');
+  let opt = null;
+  let block = '';
+  let retryCount = 0;
+  let lastRetry = null;
 
   try {
-    const tempDir = await mkdtemp(join(tmpdir(), 'gemini-stt-'));
-    const jobStart = Date.now();
-    const u = ctx.from;
-    const name = u.username ? `@${u.username}` : [u.first_name, u.last_name].filter(Boolean).join(' ');
-    const tag = randomBytes(3).toString('hex');
-    let opt = null;
-    let optimizedBlock = '';
-    let retryCount = 0;
-    let lastRetry = null;
+    await ui.show(status.DOWNLOADING);
+    const downloadPath = resolve(tempDir, 'input');
+    await downloadFile(ctx.telegram, fileId, downloadPath);
 
-    try {
-      await progress.show('📥 Downloading from Telegram…');
-      const downloadPath = resolve(tempDir, 'input');
-      await downloadFile(ctx.telegram, fileId, downloadPath);
+    await ui.show(status.OPTIMIZING);
+    const optimizedPath = resolve(tempDir, `optimized-${tag}.ogg`);
+    opt = await optimize(downloadPath, optimizedPath);
+    block = status.optimizedBlock(opt);
 
-      await progress.show('🔧 Optimizing audio…');
-      const optimizedPath = resolve(tempDir, `optimized-${tag}.ogg`);
-      opt = await optimize(downloadPath, optimizedPath);
+    await ui.show(status.sendingOptimized(block));
+    await ctx.replyWithAudio(Input.fromLocalFile(optimizedPath));
 
-      optimizedBlock =
-        `🔧 Optimized\n` +
-        `${fmtDuration(opt.originalDuration)} → ${fmtDuration(opt.optimizedDuration)} (-${(opt.durationSavings * 100).toFixed(0)}%)\n` +
-        `${fmtBytes(opt.originalSize)} → ${fmtBytes(opt.optimizedSize)}`;
+    ui.startTicker(() => status.transcribing(block, lastRetry));
 
-      await progress.show(`${optimizedBlock}\n\n📤 Sending optimized file…`);
-      await ctx.replyWithAudio(Input.fromLocalFile(optimizedPath));
+    const result = await transcribe(gemini, optimizedPath, {
+      model: config.geminiModel,
+      onRetry: r => {
+        if (r) retryCount++;
+        lastRetry = r;
+      },
+    });
+    ui.stopTicker();
 
-      progress.startTicker(() => {
-        const phrase = PHRASES[Math.floor(Math.random() * PHRASES.length)];
-        const retry = lastRetry ? ` (retry ${lastRetry.attempt}/${lastRetry.maxRetries})` : '';
-        return `${optimizedBlock}\n\n🎙 ${phrase}…${retry}`;
-      });
+    if (!result.text?.trim()) throw new Error('Got an empty transcript.');
 
-      const result = await transcribe(gemini, optimizedPath, {
-        model: config.geminiModel,
-        onRetry: r => {
-          if (r) retryCount++;
-          lastRetry = r;
-        },
-      });
-      progress.stopTicker();
+    const cost = estimateCost(result) ?? 0;
+    const output = fmtOutput(result.text, tag);
 
-      if (!result.text?.trim()) throw new Error('Got an empty transcript.');
-
-      const cost = estimateCost(result) ?? 0;
-      const output = fmtOutput(result.text, tag);
-
-      if (output.kind === 'message') {
-        await ctx.reply(output.text);
-      } else {
-        await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(output.content), output.filename));
-      }
-
-      const elapsed = (Date.now() - jobStart) / 1000;
-      console.log(
-        `[${ts()}] ✓ ${name} (${u.id}) · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)} · ${result.model.replace('gemini-2.5-', '')} · $${cost.toFixed(4)} · ${result.text.length} chars · ${fmtDuration(elapsed)} total${fmtRetries(retryCount)}`,
-      );
-      await progress.finish(optimizedBlock);
-    } catch (err) {
-      progress.stopTicker();
-      const elapsed = (Date.now() - jobStart) / 1000;
-      const optPart = opt ? ` · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)}` : '';
-      console.log(
-        `[${ts()}] ✗ ${name} (${u.id})${optPart} · ${config.geminiModel.replace('gemini-2.5-', '')} · ${fmtDuration(elapsed)} total${fmtRetries(retryCount)} · failed: ${extractReason(err)}`,
-      );
-      const prefix = optimizedBlock ? `${optimizedBlock}\n\n` : '';
-      await progress.finish(`${prefix}❌ ${err.message ?? String(err)}`);
-    } finally {
-      await rm(tempDir, { recursive: true, force: true });
+    if (output.kind === 'message') {
+      await ctx.reply(output.text);
+    } else {
+      await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(output.content), output.filename));
     }
+
+    logSuccess({ u, opt, result, cost, retryCount, jobStart });
+    await ui.finish(block);
+  } catch (err) {
+    ui.stopTicker();
+    logFailure({ u, opt, retryCount, jobStart, err });
+    await ui.finish(status.failure(block, err.message ?? String(err)));
   } finally {
+    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
     releaseSlot();
   }
 }

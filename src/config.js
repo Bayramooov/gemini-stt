@@ -1,3 +1,14 @@
+// Lift Node's bundled undici headersTimeout (default 5 min) so long Gemini
+// transcriptions don't fail with UND_ERR_HEADERS_TIMEOUT after we've been
+// billed. Done via the public global-dispatcher symbol to avoid pulling a
+// separate `undici` npm package, which would clash with Node's bundled version.
+{
+  const sym = Symbol.for('undici.globalDispatcher.1');
+  fetch('data:,').catch(() => {}); // trigger lazy init of the global dispatcher
+  const Agent = globalThis[sym].constructor;
+  globalThis[sym] = new Agent({ headersTimeout: 60 * 60 * 1000, bodyTimeout: 60 * 60 * 1000 });
+}
+
 function str(name, fallback) {
   const v = process.env[name] || fallback;
   if (v === undefined) throw new Error(`Missing required env var: ${name}`);

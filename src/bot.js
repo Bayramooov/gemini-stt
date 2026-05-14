@@ -2,7 +2,7 @@ import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 import { config, isLocalApi } from './config.js';
 import * as allowlist from './allowlist.js';
-import { runPipeline } from './pipeline.js';
+import { run } from './pipeline.js';
 
 const isAdmin = id => id === config.adminUserId;
 const isAllowed = id => isAdmin(id) || allowlist.has(id);
@@ -64,17 +64,17 @@ bot.command('list', ctx => {
 bot.use((ctx, next) => (isAllowed(ctx.from?.id) ? next() : undefined));
 
 // Media handlers — audio + video; video runs through the same pipeline since ffmpeg extracts the audio track.
-bot.on(message('voice'), ctx => runPipeline(ctx, ctx.message.voice.file_id));
-bot.on(message('audio'), ctx => runPipeline(ctx, ctx.message.audio.file_id));
-bot.on(message('video'), ctx => runPipeline(ctx, ctx.message.video.file_id));
-bot.on(message('video_note'), ctx => runPipeline(ctx, ctx.message.video_note.file_id));
+bot.on(message('voice'), ctx => run(ctx, ctx.message.voice.file_id));
+bot.on(message('audio'), ctx => run(ctx, ctx.message.audio.file_id));
+bot.on(message('video'), ctx => run(ctx, ctx.message.video.file_id));
+bot.on(message('video_note'), ctx => run(ctx, ctx.message.video_note.file_id));
 bot.on(message('document'), ctx => {
   const d = ctx.message.document;
   const mime = d.mime_type ?? '';
   if (!mime.startsWith('audio/') && !mime.startsWith('video/')) {
     return ctx.reply(`Document is not audio or video (mime: ${mime || '?'}). Ignored.`);
   }
-  return runPipeline(ctx, d.file_id);
+  return run(ctx, d.file_id);
 });
 
 // Graceful shutdown

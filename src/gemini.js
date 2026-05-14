@@ -22,7 +22,7 @@ const PRICING = {
 
 export function createClient(apiKey) {
   if (!apiKey) throw new Error('GEMINI_API_KEY is required');
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey, httpOptions: { timeout: 60 * 60 * 1000 } });
 }
 
 export async function transcribe(client, audioPath, opts = {}) {
@@ -68,6 +68,19 @@ export async function transcribe(client, audioPath, opts = {}) {
     audioTokens: audioModality?.tokenCount ?? 0,
     outputTokens: usage.candidatesTokenCount ?? 0,
   };
+}
+
+// Gemini's ApiError stringifies as "ApiError: {json}". Pull the human-readable
+// message out so it fits on one log line.
+export function extractReason(err) {
+  const status = err?.status ?? err?.response?.status;
+  let msg = err?.message ?? String(err);
+  try {
+    const parsed = JSON.parse(msg.slice(msg.indexOf(':') + 1).trim());
+    if (parsed?.error?.message) msg = parsed.error.message;
+  } catch {}
+  msg = msg.split('\n')[0].slice(0, 200);
+  return status ? `${status} ${msg}` : msg;
 }
 
 export function estimateCost({ model, audioTokens, promptTokens, outputTokens }) {

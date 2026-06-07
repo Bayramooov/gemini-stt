@@ -15,9 +15,18 @@ const MAX_BACKOFF_MS = 30_000;
 const PROMPT_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'prompt.md');
 const TRANSCRIPTION_PROMPT = readFileSync(PROMPT_PATH, 'utf8').trim();
 
+// Per 1M tokens. Pro has separate rates when promptTokenCount > 200K
+// (input 2×, output 1.5×). Flash is flat-rate. Output rate covers both
+// candidatesTokenCount and thoughtsTokenCount.
+// https://ai.google.dev/gemini-api/docs/pricing
 const PRICING = {
-  'gemini-2.5-flash': { audio: 1.0, text: 0.3, output: 2.5 },
-  'gemini-2.5-pro': { audio: 1.0, text: 1.25, output: 10.0 },
+  'gemini-2.5-flash': {
+    low: { audio: 1.0, text: 0.3, output: 2.5 },
+  },
+  'gemini-2.5-pro': {
+    low:  { audio: 1.25, text: 1.25, output: 10.0 },
+    high: { audio: 2.50, text: 2.50, output: 15.0 },
+  },
 };
 
 export function createClient(apiKey) {
@@ -67,6 +76,7 @@ export async function transcribe(client, audioPath, opts = {}) {
     promptTokens: usage.promptTokenCount ?? 0,
     audioTokens: audioModality?.tokenCount ?? 0,
     outputTokens: usage.candidatesTokenCount ?? 0,
+    thoughtsTokens: usage.thoughtsTokenCount ?? 0,
   };
 }
 
@@ -83,11 +93,13 @@ export function extractReason(err) {
   return status ? `${status} ${msg}` : msg;
 }
 
-export function estimateCost({ model, audioTokens, promptTokens, outputTokens }) {
-  const p = PRICING[model];
-  if (!p) return null;
+export function estimateCost({ model, promptTokens, audioTokens, outputTokens, thoughtsTokens }) {
+  const tiers = PRICING[model];
+  if (!tiers) return null;
+  const p = tiers.high && (promptTokens ?? 0) > 200_000 ? tiers.high : tiers.low;
   const textTokens = Math.max(0, (promptTokens ?? 0) - (audioTokens ?? 0));
-  return (audioTokens * p.audio + textTokens * p.text + outputTokens * p.output) / 1_000_000;
+  const outputTotal = (outputTokens ?? 0) + (thoughtsTokens ?? 0);
+  return (audioTokens * p.audio + textTokens * p.text + outputTotal * p.output) / 1_000_000;
 }
 
 async function waitUntilActive(client, name) {

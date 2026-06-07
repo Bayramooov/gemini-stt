@@ -20,9 +20,9 @@ async function probe(path) {
   return { duration, size };
 }
 
-// Trim silences (>0.5s, <-50dB, with 0.5s padding) and speed up 1.3×.
+// Trim silences (>0.5s, <-50dB, with 0.5s padding) and speed up 1.25×.
 const FILTERS =
-  'silenceremove=start_periods=1:start_duration=0.5:start_silence=0.5:start_threshold=-50dB:stop_periods=-1:stop_duration=0.5:stop_silence=0.5:stop_threshold=-50dB,atempo=1.3';
+  'silenceremove=start_periods=1:start_duration=0.5:start_silence=0.5:start_threshold=-50dB:stop_periods=-1:stop_duration=0.5:stop_silence=0.5:stop_threshold=-50dB,atempo=1.25';
 
 export async function optimize(input, output) {
   const before = await probe(input);

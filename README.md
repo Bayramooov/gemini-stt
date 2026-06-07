@@ -73,7 +73,7 @@ Defaults work; tune in `.env` only if needed.
 
 - `GEMINI_MODEL` — `gemini-2.5-pro` (default) or `gemini-2.5-flash` (~3× cheaper).
 
-Audio optimization parameters (silence trim, 1.3× speedup) are hardcoded in [`src/audio.js`](src/audio.js).
+Audio optimization parameters (silence trim, 1.25× speedup) are hardcoded in [`src/audio.js`](src/audio.js).
 
 ## Reverting docker → local
 

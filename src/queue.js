@@ -25,11 +25,13 @@ export async function acquireSlot(progress) {
         inFlight++;
         resolve();
       },
-      onUpdate: pos => progress.show(queueText(pos)),
+      onUpdate: pos => progress.show(queueText(pos)).catch(() => {}),
     });
     initialPos = waiters.length;
   });
-  await progress.show(queueText(initialPos));
+  // Queue-position messages are cosmetic — if they can't be sent (user blocked
+  // the bot, rate limit), the caller must still get its slot, not a rejection.
+  await progress.show(queueText(initialPos)).catch(() => {});
   await slot;
 }
 

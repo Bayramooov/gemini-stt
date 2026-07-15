@@ -20,7 +20,10 @@ export const failure = (block, errMsg) => (block ? `${block}\n\n` : '') + `❌ $
 
 // Sends one Telegram message and edits it over time. Edit failures (rate
 // limits, deleted message, etc.) are silently swallowed — they aren't
-// actionable and would otherwise crash the ticker.
+// actionable and would otherwise crash the ticker. The FIRST send (ctx.reply)
+// does reject on purpose: pipeline relies on it to abort a job early when the
+// user can't receive messages (before any download/Gemini spend), so callers
+// where the message is merely cosmetic must add their own .catch(() => {}).
 export function createStatus(ctx) {
   let currentText = '';
   let messageId = null;

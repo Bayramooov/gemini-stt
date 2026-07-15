@@ -15,7 +15,13 @@ const stripModel = m => m.replace('gemini-2.5-', '');
 
 export const log = line => {
   console.log(line);
-  appendFileSync(LOG_PATH, line + '\n');
+  try {
+    appendFileSync(LOG_PATH, line + '\n');
+  } catch (err) {
+    // A failing bot.log write (disk full, permissions) must never take down a
+    // job — the line is already on the console, so only the mirror is lost.
+    console.error(`bot.log write failed: ${err.code ?? err.message}`);
+  }
 };
 
 export function logSuccess({ u, opt, result, cost, retryCount, jobStart }) {

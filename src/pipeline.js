@@ -14,20 +14,23 @@ import * as status from './status.js';
 
 const gemini = createClient(config.geminiApiKey);
 
+// Called fire-and-forget from bot.js (see the media handlers there), so it
+// must never reject — a rejection would be an unhandled one and crash the bot.
 export async function run(ctx, fileId) {
   const ui = status.createStatus(ctx);
   await acquireSlot(ui);
 
-  const tempDir = await mkdtemp(join(tmpdir(), 'gemini-stt-'));
   const jobStart = Date.now();
   const u = ctx.from;
   const tag = randomBytes(3).toString('hex');
+  let tempDir = null;
   let opt = null;
   let block = '';
   let retryCount = 0;
   let lastRetry = null;
 
   try {
+    tempDir = await mkdtemp(join(tmpdir(), 'gemini-stt-'));
     await ui.show(status.DOWNLOADING);
     const downloadPath = resolve(tempDir, 'input');
     await downloadFile(ctx.telegram, fileId, downloadPath);
@@ -71,9 +74,9 @@ export async function run(ctx, fileId) {
   } catch (err) {
     ui.stopTicker();
     logFailure({ u, opt, retryCount, jobStart, err });
-    await ui.finish(status.failure(block, err.message ?? String(err)));
+    await ui.finish(status.failure(block, err?.message ?? String(err))).catch(() => {});
   } finally {
-    await rm(tempDir, { recursive: true, force: true }).catch(() => {});
+    if (tempDir) await rm(tempDir, { recursive: true, force: true }).catch(() => {});
     releaseSlot();
   }
 }

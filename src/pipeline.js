@@ -37,8 +37,12 @@ export async function run(ctx, fileId) {
     opt = await optimize(downloadPath, optimizedPath);
     block = status.optimizedBlock(opt);
 
-    await ui.show(status.sendingOptimized(block));
-    await ctx.replyWithAudio(Input.fromLocalFile(optimizedPath));
+    // Disabled: OGG/Opus via sendAudio counts as a voice message, so users with
+    // the "Voice Messages" privacy restriction got VOICE_MESSAGES_FORBIDDEN and
+    // the whole job died. Planned: send optimized audio to a buffer group for
+    // debugging/audit instead of back to the user.
+    // await ui.show(status.sendingOptimized(block));
+    // await ctx.replyWithAudio(Input.fromLocalFile(optimizedPath));
 
     ui.startTicker(() => status.transcribing(block, lastRetry));
 

@@ -3,6 +3,7 @@ import { message } from 'telegraf/filters';
 import { config, isLocalApi } from './config.js';
 import * as allowlist from './allowlist.js';
 import { run } from './pipeline.js';
+import { log } from './logger.js';
 
 const isAdmin = id => id === config.adminUserId;
 const isAllowed = id => isAdmin(id) || allowlist.has(id);
@@ -24,7 +25,7 @@ bot.start(ctx => {
   const u = ctx.from;
   const allowed = isAllowed(u.id);
   if (allowed) return ctx.reply(WELCOME);
-  console.log(`/start unauthorized — id=${u.id}, username=@${u.username ?? 'none'}`);
+  log(`/start unauthorized — id=${u.id}, username=@${u.username ?? 'none'}`);
   return ctx.reply(`${WELCOME}\n\n${fmtWhoami(u, false)}`);
 });
 
@@ -32,7 +33,7 @@ bot.command('whoami', ctx => {
   const u = ctx.from;
   const allowed = isAllowed(u.id);
   if (!allowed) {
-    console.log(`/whoami unauthorized — id=${u.id}, username=@${u.username ?? 'none'}`);
+    log(`/whoami unauthorized — id=${u.id}, username=@${u.username ?? 'none'}`);
   }
   return ctx.reply(fmtWhoami(u, allowed));
 });
@@ -81,11 +82,11 @@ bot.on(message('document'), ctx => {
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
-console.log(`▶ starting bot`);
-console.log(`  api:           ${config.tgBotApiUrl}  (${isLocalApi() ? 'local' : 'cloud'})`);
-console.log(`  model:         ${config.geminiModel}`);
-console.log(`  admin:         ${config.adminUserId}`);
-console.log(`  allowed users: ${allowlist.list().join(', ') || '(none — only admin works)'}`);
+log(`▶ starting bot`);
+log(`  api:           ${config.tgBotApiUrl}  (${isLocalApi() ? 'local' : 'cloud'})`);
+log(`  model:         ${config.geminiModel}`);
+log(`  admin:         ${config.adminUserId}`);
+log(`  allowed users: ${allowlist.list().join(', ') || '(none — only admin works)'}`);
 
 const baseCommands = [
   { command: 'start', description: 'Welcome message' },

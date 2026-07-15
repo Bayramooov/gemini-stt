@@ -1,4 +1,5 @@
 import { appendFileSync, mkdirSync } from 'node:fs';
+import { inspect } from 'node:util';
 import { config } from './config.js';
 import { fmtDuration, fmtBytes } from './format.js';
 import { extractReason } from './gemini.js';
@@ -12,7 +13,7 @@ const userTag = u => `${u.username ? `@${u.username}` : [u.first_name, u.last_na
 const optPart = opt => (opt ? ` · ${fmtDuration(opt.originalDuration)} (${fmtBytes(opt.originalSize)}) → ${fmtDuration(opt.optimizedDuration)}` : '');
 const stripModel = m => m.replace('gemini-2.5-', '');
 
-const log = line => {
+export const log = line => {
   console.log(line);
   appendFileSync(LOG_PATH, line + '\n');
 };
@@ -26,5 +27,5 @@ export function logFailure({ u, opt, retryCount, jobStart, err }) {
   const elapsed = (Date.now() - jobStart) / 1000;
   log(`[${ts()}] ✗ ${userTag(u)}${optPart(opt)} · ${stripModel(config.geminiModel)} · ${fmtDuration(elapsed)} total${fmtRetries(retryCount)} · failed: ${extractReason(err)}`);
   // Full error with stack and cause chain — for diagnosing "fetch failed" and similar opaque errors.
-  console.error(err);
+  log(inspect(err, { depth: 5 }));
 }

@@ -24,6 +24,7 @@ const fmtWhoami = (u, allowed) => `ID: ${u.id}\nUsername: @${u.username ?? '(non
 bot.start(ctx => {
   const u = ctx.from;
   const allowed = isAllowed(u.id);
+  if (isAdmin(u.id)) void setAdminCommands();
   if (allowed) return ctx.reply(WELCOME);
   log(`/start unauthorized — id=${u.id}, username=@${u.username ?? 'none'}`);
   return ctx.reply(`${WELCOME}\n\n${fmtWhoami(u, false)}`);
@@ -99,15 +100,25 @@ const baseCommands = [
 
 await bot.telegram.setMyCommands(baseCommands);
 
-// Extra commands visible only in the admin's DM with the bot.
-await bot.telegram.setMyCommands(
-  [
-    ...baseCommands,
-    { command: 'allow', description: 'Allow a user — /allow <user_id>' },
-    { command: 'deny', description: 'Deny a user — /deny <user_id>' },
-    { command: 'list', description: 'List allowed users' },
-  ],
-  { scope: { type: 'chat', chat_id: config.adminUserId } },
-);
+// Extra commands visible only in the admin's DM with the bot. Telegram rejects
+// the chat scope with "chat not found" until the admin has pressed /start once,
+// so a fresh deploy must not die here — the admin's /start sets it again.
+async function setAdminCommands() {
+  try {
+    await bot.telegram.setMyCommands(
+      [
+        ...baseCommands,
+        { command: 'allow', description: 'Allow a user — /allow <user_id>' },
+        { command: 'deny', description: 'Deny a user — /deny <user_id>' },
+        { command: 'list', description: 'List allowed users' },
+      ],
+      { scope: { type: 'chat', chat_id: config.adminUserId } },
+    );
+  } catch (err) {
+    log(`admin command menu not set: ${err.description ?? err.message} — admin, press /start in the bot`);
+  }
+}
+
+await setAdminCommands();
 
 bot.launch();

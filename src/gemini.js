@@ -10,6 +10,9 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_RETRIES = 8;
 const BASE_BACKOFF_MS = 1500;
 const MAX_BACKOFF_MS = 30_000;
+// A 429 for a quota of 0 (model not in the key's plan, e.g. Pro on the free
+// tier) or a daily quota can't recover within our ~3 min of backoff — fail fast.
+const isHardQuota = err => /limit: 0\b|PerDay/.test(err?.message ?? '');
 
 // Prompt lives in src/prompt.md — edit there, restart the bot to pick up changes.
 const PROMPT_PATH = resolve(dirname(fileURLToPath(import.meta.url)), 'prompt.md');
@@ -127,10 +130,10 @@ async function withRetry(fn, onRetry) {
       return await fn();
     } catch (err) {
       const status = err?.status ?? err?.response?.status;
-      if (!RETRYABLE_STATUSES.has(status) || attempt >= MAX_RETRIES) throw err;
+      if (!RETRYABLE_STATUSES.has(status) || isHardQuota(err) || attempt >= MAX_RETRIES) throw err;
       attempt++;
       const delayMs = Math.min(BASE_BACKOFF_MS * 2 ** (attempt - 1), MAX_BACKOFF_MS) + Math.random() * BASE_BACKOFF_MS * 0.5;
-      onRetry?.({ attempt, maxRetries: MAX_RETRIES });
+      onRetry?.({ attempt, maxRetries: MAX_RETRIES, reason: extractReason(err) });
       await sleep(delayMs);
     }
   }

@@ -9,7 +9,7 @@ import { optimize } from './audio.js';
 import { createClient, transcribe, estimateCost } from './gemini.js';
 import { acquireSlot, releaseSlot } from './queue.js';
 import { fmtOutput } from './format.js';
-import { logSuccess, logFailure } from './logger.js';
+import { log, logSuccess, logFailure } from './logger.js';
 import * as status from './status.js';
 
 const gemini = createClient(config.geminiApiKey);
@@ -52,7 +52,10 @@ export async function run(ctx, fileId) {
     const result = await transcribe(gemini, optimizedPath, {
       model: config.geminiModel,
       onRetry: r => {
-        if (r) retryCount++;
+        if (r) {
+          retryCount++;
+          log(`[${tag}] retry ${r.attempt}/${r.maxRetries}: ${r.reason}`);
+        }
         lastRetry = r;
       },
     });

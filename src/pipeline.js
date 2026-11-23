@@ -67,7 +67,7 @@ export async function run(ctx, fileId) {
     if (output.kind === 'message') {
       await ctx.reply(output.text);
     } else {
-      await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(output.content), output.filename));
+      await ctx.replyWithDocument(Input.fromBuffer(Buffer.from(output.content), output.filename), { caption: originalName });
     }
 
     logSuccess({ u, opt, result, cost, retryCount, jobStart });

@@ -61,7 +61,8 @@ export async function run(ctx, fileId) {
     if (!result.text?.trim()) throw new Error('Got an empty transcript.');
 
     const cost = estimateCost(result) ?? 0;
-    const output = fmtOutput(result.text, tag);
+    const originalName = (ctx.message.audio ?? ctx.message.video ?? ctx.message.document)?.file_name;
+    const output = fmtOutput(result.text, tag, originalName);
 
     if (output.kind === 'message') {
       await ctx.reply(output.text);
